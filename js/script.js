@@ -140,175 +140,128 @@ equal: {
 };
 
 const calculatorState = {
-currentInput: '',
-previousInput: '',
-operator: null,
-overwrite: false,
-lastInputType: '',
-isFirstInput: true,
-result: null
+firstOperand: null,
+currentOperator: null,
+awaitingSecondOperand: false,
+expression: ''
 };
 
-/*function displayCalculation(value) {
-const calculatorDisplay = document.querySelector('#display');
-let operatorButton = document.querySelectorAll('[data-operator]');
-calculatorDisplay.value += value;
-}
-displayCalculation();
 
-function operationSetUp(operation) {
-   const calculatorDisplay = document.querySelector('#display'); 
-   let num1 = null;
-   let operator = null;
-
-   if(num1 === null) {
-    num1 = parseFloat(calculatorDisplay.value);
-   }
-   operator = operation;
-   calculatorDisplay.value;
-}
-operationSetUp();
-
-
-function results(){
-     const calculatorDisplay = document.querySelector('#display'); 
-   let num1 = null;
-   let operator = null;  
-   let result;
-
-   if(num1 === null || operator === null){
-    return;
-   }
-
-   const num2 = parseFloat(calculatorDisplay.value);
-
-   switch(operator) {
-    case '√': result = Math.sqrt(num2); 
-    break;
-    case '%': result = num1 / 100;
-    break;
-    case '±': result = -num1;
-    break;
-    case 'a/b': result = 1 / num1;
-    break;
-    case 'π': result = Math.PI;
-    break;
-    case '×': result = num1 * num2;
-    break;
-    case '÷': result = num1 / num2;
-    break;
-    case '+': result = num1 + num2;
-    break;
-    case '-': result = num1 - num2;
-    break;
-   }
-   calculatorDisplay.value = result;
-   num1 = null;
-   operator = null;
-}
-results();*/
 
 function appendNumber() {
-    let number = document.querySelectorAll('[data-number]');
-    let display = document.querySelector('#display');
+  let buttonNumber = document.querySelectorAll('[data-number]');
+  let display = document.querySelector('#display');
 
-    number.forEach(num => {
-        num.addEventListener('click', () => {
-            display.value = num;
-            updateDisplay();
-        });
+  buttonNumber.forEach(number => {
+    number.addEventListener('click', () => {
+      const value = number.textContent;
+      if (value === '.' && display.value.includes('.')) return;
+
+      if (calculatorState.awaitingSecondOperand) {
+        display.value = (value === '.') ? '0.' : value;
+        calculatorState.expression += ` ${buttons[calculatorState.currentOperator].value} ${display.value}`;
+        calculatorState.awaitingSecondOperand = false;
+      } else {
+        display.value += value;
+        calculatorState.expression += value;
+      }
     });
+  });
 }
-appendNumber();
 
-function setEquation(op) {
-    let operator = document.querySelectorAll('[ data-operator]');
-     let display = document.querySelector('#display');
-     let firstOperand = null;
-     let operation = null;
 
-     operator.forEach(operators => {
-        operators.addEventListener('click', () => {
-            if(firstOperand === null) {
-                firstOperand = parseFloat(display);
-            }else {
-                calculate();
-            }
+function setEquation() {
+  const operatorButtons = document.querySelectorAll('[data-operator]');
+  const display = document.querySelector('#display');
 
-            operation = op;
-            display.value = '';
-            updateDisplay();
-        });
-     });
+  operatorButtons.forEach(operator => {
+    operator.addEventListener('click', () => {
+      const inputValue = parseFloat(display.value);
+      if (isNaN(inputValue)) return;
+
+      if (calculatorState.firstOperand === null) {
+        calculatorState.firstOperand = inputValue;
+        calculatorState.expression = display.value;
+      } else if (!calculatorState.awaitingSecondOperand) {
+        const result = performCalculation(
+          calculatorState.currentOperator,
+          calculatorState.firstOperand,
+          inputValue
+        );
+        display.value = result;
+        calculatorState.firstOperand = result;
+        calculatorState.expression = result.toString();
+      }
+
+      calculatorState.currentOperator = operator.getAttribute('data-operator');
+      calculatorState.awaitingSecondOperand = true;
+    });
+  });
 }
-setEquation();
+
+function performCalculation(operatorKey, first, second) {
+const operator = buttons[operatorKey];
+
+if(!operator || typeof operator.operation !== 'function') return second;
+
+if(operator.operation.length === 1) return operator.operation(first);
+
+return operator.operation(first, second);
+}
 
 function calculate() {
-   let display = document.querySelector('#display'); 
-   let equal = document.querySelector('.equal');
-    let firstOperand = null;
-     let operation = null;
+  let display = document.querySelector('#display');
+  let equal = document.querySelector('.equal');
 
-     equal.addEventListener('click', () => {
-        if(operation && firstOperand !== null) {
-            let secondOperand = parseFloat(display);
+  equal.addEventListener('click', () => {
+    const secondOperand = parseFloat(display.value);
 
-            switch(operation) {
-                case '√': 
-                display = Math.sqrt(firstOperand);
-                break;
-                case '%':
-                    display = firstOperand / 100;
-                    break;
-                    case '±':
-                        display = -firstOperand;
-                        break;
-                        case 'a/b':
-                            display = 1 / firstOperand;
-                            break;
-                            case 'π': 
-                            display = Math.PI;
-                            break;
-                            case '×':
-                                display = firstOperand * secondOperand;
-                                break;
-                                case '÷':
-                                    display = firstOperand / secondOperand;
-                                    break;
-                                    case '+':
-                                        display = firstOperand + secondOperand;
-                                        break;
-                                        case '-': 
-                                        display = firstOperand - secondOperand
-                                        break;
-            }
-        };
-        updateDisplay();
-     });
+    if (
+      calculatorState.currentOperator &&
+      calculatorState.firstOperand !== null &&
+      !isNaN(secondOperand)
+    ) {
+      const result = performCalculation(
+        calculatorState.currentOperator,
+        calculatorState.firstOperand,
+        secondOperand
+      );
+
+      calculatorState.expression += ` = ${result}`;
+      display.value = calculatorState.expression;
+
+      calculatorState.firstOperand = result;
+      calculatorState.currentOperator = null;
+      calculatorState.awaitingSecondOperand = false;
+      calculatorState.expression = result.toString(); // carry forward
+    }
+  });
 }
+
 
 function clearDisplay() {
-    let clear = document.querySelector('.clear');
-    let allClear = document.querySelector('.all-clear');
-     let display = document.querySelector('#display');
-      let firstOperand = null;
-      let operation = null;
+const clear = document.querySelector('.clear');
+const allClear = document.querySelector('.all-clear');
+const display = document.querySelector('#display');
 
-      clear.addEventListener('click', () => {
-        display.value = '';
-        firstOperand = null;
-        operation = null
-      });
+clear.addEventListener('click', () => {
+    display.value = '';
+    calculatorState.expression = '';
+});
 
-      allClear.addEventListener('click', () => {
-        display.value = '';
-        firstOperand = null;
-        operation = null
-      });
+allClear.addEventListener('click', () => {
+    display.value = '';
+    calculatorState.firstOperand = null;
+    calculatorState.currentOperator = null;
+    calculatorState.awaitingSecondOperand = false;
+    calculatorState.expression = '';
+});
 }
 
-function updateDisplay() {
-     let display = document.querySelector('#display');
-     display.value = display;
+function initializeCalculator() {
+appendNumber();
+setEquation();
+calculate();
+clearDisplay();
 }
-
+initializeCalculator();
